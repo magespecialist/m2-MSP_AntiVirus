@@ -1,8 +1,9 @@
 # MSP AntiVirus
 
 A Malware / Virus protection for for Magento 2.<br />
-This module is an **ClamAV** interface for malware / virus detection on **POST/PUT** Magento2 requests.<br />
-It adds a strong security layer if you receive attachment from your clients or you want to prevent malicious uploads.
+This module is a **ClamAV** interface for malware / virus detection on **POST/PUT** Magento2 requests.<br />
+<br />
+It adds a strong security layer if you receive **attachment from your customers** or you want to prevent **malicious uploads**.
 
 **Requires ClamAV daemon installed on webserver**.
 
@@ -12,7 +13,7 @@ It adds a strong security layer if you receive attachment from your clients or y
 
 ## Installing on Magento2:
 
-**1. Install ClamAV if not yet installed**
+**1. Install ClamAV (if not present)**
 
 You need ClamAV installed on your server.
 
@@ -24,7 +25,7 @@ On CentOS systems:
 
 `sudo yum -y install clamav-server clamav-data clamav-update clamav-server-systemd`
 
-**2. Install using composer**
+**2. Install MSP AntiVirus using composer**
 
 From command line: 
 
@@ -35,10 +36,14 @@ From command line:
 
 <img src="https://raw.githubusercontent.com/magespecialist/m2-MSP_AntiVirus/master/screenshots/config.png" />
 
+Adjust the ClamAV socket accordingly to your system. If you are running on Ubuntu Server the default value should work.
+
+NOTE: Remember to flush your cache.
+
 ## How to test it
 
 MSP AntiVirus will check any **PUT/POST** Magento operations against known malware.<br />
-If you wish to check correct installation you can try posting the **EICAR signature** in any Magento **POST** form.
+If you wish to check the correct module installation you can try typing the **EICAR signature** in any Magento **POST** form.
 
 > EICAR is a "fake malware" designed to test anti virus systems: http://www.eicar.org/
 
