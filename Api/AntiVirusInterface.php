@@ -47,4 +47,10 @@ interface AntiVirusInterface
      * @return bool
      */
     public function isEnabled();
+
+    /**
+     * Return true if ClamAV connection can be established
+     * @return bool
+     */
+    public function testConnection();
 }

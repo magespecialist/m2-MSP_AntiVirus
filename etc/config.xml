@@ -26,6 +26,7 @@
             <antivirus>
                 <enabled>0</enabled>
                 <socket>unix:///var/run/clamav/clamd.ctl</socket>
+                <min_size>64</min_size>
             </antivirus>
         </msp_securitysuite>
     </default>

@@ -28,11 +28,12 @@ use Socket\Raw\Socket;
 
 class AntiVirus implements AntiVirusInterface
 {
-    const BLOCK_SIZE = 8192;
+    const BLOCK_SIZE = 16384;
     const TIMEOUT = 30;
 
     const XML_PATH_ENABLED = 'msp_securitysuite/antivirus/enabled';
     const XML_PATH_SOCKET = 'msp_securitysuite/antivirus/socket';
+    const XML_PATH_MIN_SIZE = 'msp_securitysuite/antivirus/min_size';
 
     /**
      * @var RequestInterface
@@ -42,12 +43,14 @@ class AntiVirus implements AntiVirusInterface
     /**
      * @var Socket
      */
-    protected $av;
+    protected $av = null;
 
     /**
      * @var ScopeConfigInterface
      */
     private $scopeConfig;
+
+    protected $minSize;
 
     public function __construct(
         RequestInterface $request,
@@ -72,10 +75,14 @@ class AntiVirus implements AntiVirusInterface
      */
     protected function getAntiVirus()
     {
-        if (!$this->av) {
-            $unix = $this->scopeConfig->getValue(static::XML_PATH_SOCKET);
-            $this->av = (new \Socket\Raw\Factory())->createClient($unix);
-            $this->avCommand('IDSESSION');
+        if (is_null($this->av)) {
+            try {
+                $unix = $this->scopeConfig->getValue(static::XML_PATH_SOCKET);
+                $this->av = (new \Socket\Raw\Factory())->createClient($unix);
+                $this->avCommand('IDSESSION');
+            } catch (\Socket\Raw\Exception $e) {
+                $this->av = false;
+            }
         }
 
         return $this->av;
@@ -96,7 +103,22 @@ class AntiVirus implements AntiVirusInterface
      */
     protected function avSend($message)
     {
-        $this->getAntiVirus()->send($message, MSG_DONTROUTE);
+        if ($av = $this->getAntiVirus()) {
+            $av->send($message, MSG_DONTROUTE);
+        }
+    }
+
+    /**
+     * Get minimum string size to activate check
+     * @return int
+     */
+    protected function getMinSize()
+    {
+        if (is_null($this->minSize)) {
+            $this->minSize = max(1, $this->scopeConfig->getValue(static::XML_PATH_MIN_SIZE));
+        }
+
+        return $this->minSize;
     }
 
     /**
@@ -106,6 +128,10 @@ class AntiVirus implements AntiVirusInterface
      */
     public function scanString($string)
     {
+        if (strlen($string) < $this->getMinSize()) {
+            return false;
+        }
+
         $this->avCommand("INSTREAM");
 
         $chunksLeft = $string;
@@ -130,41 +156,46 @@ class AntiVirus implements AntiVirusInterface
      */
     protected function avRecv()
     {
-        $result = null;
+        if ($av = $this->getAntiVirus()) {
 
-        while (true) {
-            if ($this->av->selectRead(static::TIMEOUT)) {
-                $rt = $this->getAntiVirus()->read(static::BLOCK_SIZE);
-                if ($rt === "") {
+            $result = null;
+
+            while (true) {
+                if ($av->selectRead(static::TIMEOUT)) {
+                    $rt =$av->read(static::BLOCK_SIZE);
+                    if ($rt === "") {
+                        break;
+                    }
+                    $result .= $rt;
+                    if (strcmp(substr($result, -1), "\n") == 0) {
+                        break;
+                    }
+                } else {
                     break;
                 }
-                $result .= $rt;
-                if (strcmp(substr($result, -1), "\n") == 0) {
-                    break;
-                }
-            } else {
-                break;
             }
-        }
 
-        if ($result) {
-            $result = trim($result);
-        }
+            if ($result) {
+                $result = trim($result);
+            }
 
-        list($id, $foo, $response) = preg_split('/\s*:\s/', $result, 3);
-        if ($response == 'OK') {
+            list($id, $foo, $response) = preg_split('/\s*:\s/', $result, 3);
+            if ($response == 'OK') {
+                return false;
+            }
+
+            if (preg_match('/\s+ERROR$/', $response)) {
+                throw new LocalizedException(__('Error while trying to scan file: ' . $response));
+            }
+
+            if (!preg_match('/(.+?)\s+FOUND$/', $response, $matches)) {
+                throw new LocalizedException(__('Invalid antivirus engine response'));
+            }
+
+            return $matches[1];
+        } else {
             return false;
         }
-
-        if (preg_match('/\s+ERROR$/', $response)) {
-            throw new LocalizedException(__('Error while trying to scan file: ' . $response));
-        }
-
-        if (!preg_match('/(.+?)\s+FOUND$/', $response, $matches)) {
-            throw new LocalizedException(__('Invalid antivirus engine response'));
-        }
-
-        return $matches[1];
     }
 
     /**
@@ -245,5 +276,14 @@ class AntiVirus implements AntiVirusInterface
         }
 
         return false;
+    }
+
+    /**
+     * Return true if ClamAV connection can be established
+     * @return bool
+     */
+    public function testConnection()
+    {
+        return !!$this->getAntiVirus();
     }
 }
