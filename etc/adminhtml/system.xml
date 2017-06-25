@@ -35,7 +35,7 @@
                 </field>
                 <field id="min_size" translate="label comment" type="text" sortOrder="30" showInDefault="1" showInWebsite="0" showInStore="0">
                     <label>Min size</label>
-                    <comment>Minimum size in bytes size to activate CalmAV scan</comment>
+                    <comment>Minimum size in bytes to activate CalmAV scan</comment>
                 </field>
                 <field id="test" translate="label" type="MSP\AntiVirus\Block\Adminhtml\Form\Field\Test" sortOrder="100" showInDefault="1" showInWebsite="0" showInStore="0">
                     <label>Test connection</label>
