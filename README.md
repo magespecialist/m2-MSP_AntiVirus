@@ -42,8 +42,8 @@ NOTE: Remember to flush your cache.
 
 ## How to test it
 
-MSP AntiVirus will check any **PUT/POST** Magento operations against known malware.<br />
-If you wish to check the correct module installation you can try typing the **EICAR signature** in any Magento **POST** form.
+MSP AntiVirus will check any **PUT/POST** Magento operations against known malwares.<br />
+If you wish to check the correct module installation, you can try typing the **EICAR signature** in any Magento **POST** form.
 
 > EICAR is a "fake malware" designed to test anti virus systems: http://www.eicar.org/
 
