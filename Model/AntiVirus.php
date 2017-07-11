@@ -205,8 +205,16 @@ class AntiVirus implements AntiVirusInterface
      */
     public function scanFile($file)
     {
+        if (!$file) {
+            return false;
+        }
+
         // Using file_get_contents to avoid permission issues
-        return $this->scanString(file_get_contents($file));
+        try {
+            return $this->scanString(file_get_contents($file));
+        } catch (\Exception $e) {
+            return false;
+        }
     }
 
     /**
