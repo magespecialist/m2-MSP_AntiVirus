@@ -24,10 +24,12 @@ use Magento\Framework\App\State;
 use Magento\Framework\AppInterface;
 use Magento\Framework\App\RequestInterface;
 use Magento\Framework\App\Response\Http;
+use Magento\Framework\ObjectManagerInterface;
 use Magento\Framework\UrlInterface;
 use MSP\AntiVirus\Api\AntiVirusInterface;
 use MSP\SecuritySuiteCommon\Api\LogManagementInterface;
 use Magento\Framework\Event\ManagerInterface as EventInterface;
+use MSP\SecuritySuiteCommon\Api\SessionInterface;
 
 class AppInterfacePlugin
 {
@@ -61,6 +63,11 @@ class AppInterfacePlugin
      */
     private $event;
 
+    /**
+     * @var ObjectManagerInterface
+     */
+    private $objectManager;
+
 
     public function __construct(
         RequestInterface $request,
@@ -68,7 +75,8 @@ class AppInterfacePlugin
         UrlInterface $url,
         State $state,
         AntiVirusInterface $antiVirus,
-        EventInterface $event
+        EventInterface $event,
+        ObjectManagerInterface $objectManager
     ) {
         $this->request = $request;
         $this->antiVirus = $antiVirus;
@@ -76,6 +84,7 @@ class AppInterfacePlugin
         $this->url = $url;
         $this->state = $state;
         $this->event = $event;
+        $this->objectManager = $objectManager;
     }
 
     /**
@@ -103,9 +112,12 @@ class AppInterfacePlugin
                 ]);
 
                 $this->state->setAreaCode('frontend');
-                $this->http->setRedirect($this->url->getUrl('msp_security_suite/stop/index', [
-                    'reason' => ''.__('Malware found: %1', $res),
-                ]));
+
+                // Must use object manager because a session cannot be activated before setting area
+                $this->objectManager->get('MSP\SecuritySuiteCommon\Api\SessionInterface')
+                    ->setEmergencyStopMessage(__('Malware found: %1', $res));
+
+                $this->http->setRedirect($this->url->getUrl('msp_security_suite/stop/index'));
                 return $this->http;
             }
         }
