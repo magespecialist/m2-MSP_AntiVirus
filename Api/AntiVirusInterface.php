@@ -22,6 +22,10 @@ namespace MSP\AntiVirus\Api;
 
 interface AntiVirusInterface
 {
+    const XML_PATH_ENABLED = 'msp_securitysuite_antivirus/general/enabled';
+    const XML_PATH_SOCKET = 'msp_securitysuite_antivirus/general/socket';
+    const XML_PATH_MIN_SIZE = 'msp_securitysuite_antivirus/general/min_size';
+
     /**
      * Scan string and return false if no virus has been detected
      * @param $string

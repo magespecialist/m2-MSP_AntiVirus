@@ -23,17 +23,29 @@
         xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Config:etc/system_file.xsd">
 
     <system>
-        <section id="msp_securitysuite">
-            <group id="antivirus" translate="label" type="text" sortOrder="600" showInDefault="1" showInWebsite="1" showInStore="1">
-                <label>Antivirus</label>
+        <section id="msp_securitysuite_antivirus" translate="label" type="text" sortOrder="30" showInDefault="1" showInWebsite="1" showInStore="1">
+            <class>separator-top</class>
+            <label>Antivirus</label>
+            <tab>msp_securitysuite</tab>
+            <resource>MSP_SecuritySuite::config</resource>
+
+            <group id="general" translate="label" type="text" sortOrder="600" showInDefault="1" showInWebsite="1" showInStore="1">
+                <comment><![CDATA[
+                    <div class="msp_securitysuite-comment">
+                        This module is a memeber of <strong><a target="_blank" href="https://github.com/magespecialist/m2-MSP_Security_Suite">MageSpecialist Security Suite</a></strong>. <a target="_blank" href="https://github.com/magespecialist/m2-MSP_Security_Suite">Click here</a> to see all the Security Suite modules.<br />
+                        Source code, installation and configuration guide: <a target="_blank" href="https://github.com/magespecialist/m2-MSP_Security_Suite">https://github.com/magespecialist/m2-MSP_Security_Suite</a>.
+                    </div>
+                ]]></comment>
+
+                <label>General</label>
                 <field id="enabled" translate="label" type="select" sortOrder="10" showInDefault="1" showInWebsite="0" showInStore="0">
                     <label>Enabled</label>
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
                 </field>
-                <field id="socket" translate="label comment" type="text" sortOrder="20" showInDefault="1" showInWebsite="0" showInStore="0">
+                <field canRestore="1" id="socket" translate="label comment" type="text" sortOrder="20" showInDefault="1" showInWebsite="0" showInStore="0">
                     <label>ClamAV socket</label>
                 </field>
-                <field id="min_size" translate="label comment" type="text" sortOrder="30" showInDefault="1" showInWebsite="0" showInStore="0">
+                <field canRestore="1" id="min_size" translate="label comment" type="text" sortOrder="30" showInDefault="1" showInWebsite="0" showInStore="0">
                     <label>Min size</label>
                     <comment>Minimum size in bytes to activate CalmAV scan</comment>
                 </field>

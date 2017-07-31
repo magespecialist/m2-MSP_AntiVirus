@@ -31,10 +31,6 @@ class AntiVirus implements AntiVirusInterface
     const BLOCK_SIZE = 16384;
     const TIMEOUT = 30;
 
-    const XML_PATH_ENABLED = 'msp_securitysuite/antivirus/enabled';
-    const XML_PATH_SOCKET = 'msp_securitysuite/antivirus/socket';
-    const XML_PATH_MIN_SIZE = 'msp_securitysuite/antivirus/min_size';
-
     /**
      * @var RequestInterface
      */
@@ -66,7 +62,7 @@ class AntiVirus implements AntiVirusInterface
      */
     public function isEnabled()
     {
-        return !!$this->scopeConfig->getValue(static::XML_PATH_ENABLED);
+        return !!$this->scopeConfig->getValue(AntiVirusInterface::XML_PATH_ENABLED);
     }
 
     /**
@@ -77,7 +73,7 @@ class AntiVirus implements AntiVirusInterface
     {
         if (is_null($this->av)) {
             try {
-                $unix = $this->scopeConfig->getValue(static::XML_PATH_SOCKET);
+                $unix = $this->scopeConfig->getValue(AntiVirusInterface::XML_PATH_SOCKET);
                 $this->av = (new \Socket\Raw\Factory())->createClient($unix);
                 $this->avCommand('IDSESSION');
             } catch (\Socket\Raw\Exception $e) {
@@ -115,7 +111,7 @@ class AntiVirus implements AntiVirusInterface
     protected function getMinSize()
     {
         if (is_null($this->minSize)) {
-            $this->minSize = max(1, $this->scopeConfig->getValue(static::XML_PATH_MIN_SIZE));
+            $this->minSize = max(1, $this->scopeConfig->getValue(AntiVirusInterface::XML_PATH_MIN_SIZE));
         }
 
         return $this->minSize;
