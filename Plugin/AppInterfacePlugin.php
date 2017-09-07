@@ -23,13 +23,10 @@ namespace MSP\AntiVirus\Plugin;
 use Magento\Framework\App\State;
 use Magento\Framework\AppInterface;
 use Magento\Framework\App\RequestInterface;
-use Magento\Framework\App\Response\Http;
-use Magento\Framework\ObjectManagerInterface;
-use Magento\Framework\UrlInterface;
 use MSP\AntiVirus\Api\AntiVirusInterface;
+use MSP\SecuritySuiteCommon\Api\LockDownInterface;
 use MSP\SecuritySuiteCommon\Api\LogManagementInterface;
 use Magento\Framework\Event\ManagerInterface as EventInterface;
-use MSP\SecuritySuiteCommon\Api\SessionInterface;
 
 class AppInterfacePlugin
 {
@@ -44,16 +41,6 @@ class AppInterfacePlugin
     private $antiVirus;
 
     /**
-     * @var Http
-     */
-    private $http;
-
-    /**
-     * @var UrlInterface
-     */
-    private $url;
-
-    /**
      * @var State
      */
     private $state;
@@ -64,27 +51,23 @@ class AppInterfacePlugin
     private $event;
 
     /**
-     * @var ObjectManagerInterface
+     * @var LockDownInterface
      */
-    private $objectManager;
+    private $lockDown;
 
 
     public function __construct(
         RequestInterface $request,
-        Http $http,
-        UrlInterface $url,
         State $state,
         AntiVirusInterface $antiVirus,
-        EventInterface $event,
-        ObjectManagerInterface $objectManager
+        LockDownInterface $lockDown,
+        EventInterface $event
     ) {
         $this->request = $request;
         $this->antiVirus = $antiVirus;
-        $this->http = $http;
-        $this->url = $url;
         $this->state = $state;
         $this->event = $event;
-        $this->objectManager = $objectManager;
+        $this->lockDown = $lockDown;
     }
 
     /**
@@ -113,12 +96,7 @@ class AppInterfacePlugin
 
                 $this->state->setAreaCode('frontend');
 
-                // Must use object manager because a session cannot be activated before setting area
-                $this->objectManager->get('MSP\SecuritySuiteCommon\Api\SessionInterface')
-                    ->setEmergencyStopMessage(__('Malware found: %1', $res));
-
-                $this->http->setRedirect($this->url->getUrl('msp_security_suite/stop/index'));
-                return $this->http;
+                return $this->lockDown->doHttpLockdown(__('Malware found: %1', $res));
             }
         }
 
