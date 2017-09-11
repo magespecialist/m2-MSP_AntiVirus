@@ -54,7 +54,10 @@ Type the below eicar test signature in Magento customer login as password:
 
 If you correctly installed and configured MSP AntiVirus, an emergency stop screen will appear.
 
-## Malware detected
+## Threat detected (with stealth mode disabled)
 
 <img src="https://raw.githubusercontent.com/magespecialist/m2-MSP_AntiVirus/master/screenshots/detected.png" />
 
+## Threat detected (with stealth mode enabled)
+
+<img src="https://raw.githubusercontent.com/magespecialist/m2-MSP_AntiVirus/master/screenshots/detected_stealth.png" />
