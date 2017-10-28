@@ -28,14 +28,14 @@ interface AntiVirusInterface
 
     /**
      * Scan string and return false if no virus has been detected
-     * @param $string
+     * @param string $string
      * @return string|false
      */
     public function scanString($string);
 
     /**
      * Scan file and return false if no virus has been detected
-     * @param $file
+     * @param string $file
      * @return string|false
      */
     public function scanFile($file);

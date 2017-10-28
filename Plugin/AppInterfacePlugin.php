@@ -25,8 +25,7 @@ use Magento\Framework\AppInterface;
 use Magento\Framework\App\RequestInterface;
 use MSP\AntiVirus\Api\AntiVirusInterface;
 use MSP\SecuritySuiteCommon\Api\LockDownInterface;
-use MSP\SecuritySuiteCommon\Api\LogManagementInterface;
-use Magento\Framework\Event\ManagerInterface as EventInterface;
+use MSP\SecuritySuiteCommon\Api\AlertInterface;
 
 class AppInterfacePlugin
 {
@@ -46,53 +45,55 @@ class AppInterfacePlugin
     private $state;
 
     /**
-     * @var EventInterface
-     */
-    private $event;
-
-    /**
      * @var LockDownInterface
      */
     private $lockDown;
 
+    /**
+     * @var AlertInterface
+     */
+    private $alert;
 
     public function __construct(
         RequestInterface $request,
         State $state,
         AntiVirusInterface $antiVirus,
         LockDownInterface $lockDown,
-        EventInterface $event
+        AlertInterface $alert
     ) {
         $this->request = $request;
         $this->antiVirus = $antiVirus;
         $this->state = $state;
-        $this->event = $event;
         $this->lockDown = $lockDown;
+        $this->alert = $alert;
     }
 
     /**
      * Return true if content should be checked
      * @return bool
      */
-    protected function shouldCheck()
+    private function shouldCheck()
     {
         return in_array($this->request->getMethod(), ['PUT', 'POST']);
     }
 
+    /**
+     * @SuppressWarnings("PHPMD.UnusedFormalParameter")
+     */
     public function aroundLaunch(AppInterface $subject, \Closure $proceed)
     {
         // We are creating a plugin for AppInterface to make sure we can perform an AV scan early in the code.
-        // A predispatch observer is not an option.
-
         if ($this->antiVirus->isEnabled() && $this->shouldCheck()) {
             $res = $this->antiVirus->scanRequest();
 
             if ($res) {
-                $this->event->dispatch(LogManagementInterface::EVENT_ACTIVITY, [
-                    'module' => 'MSP_AntiVirus',
-                    'message' => 'Found ' . $res,
-                    'action' => 'stop',
-                ]);
+                $this->alert->event(
+                    'MSP_AntiVirus',
+                    'Found ' . $res,
+                    AlertInterface::LEVEL_SECURITY_ALERT,
+                    null,
+                    AlertInterface::ACTION_LOCKDOWN
+                );
 
                 $this->state->setAreaCode('frontend');
 

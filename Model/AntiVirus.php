@@ -22,14 +22,18 @@ namespace MSP\AntiVirus\Model;
 
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\Exception\LocalizedException;
+use Magento\Framework\Filesystem\Io\File;
 use MSP\AntiVirus\Api\AntiVirusInterface;
 use Magento\Framework\App\RequestInterface;
+use MSP\SecuritySuiteCommon\Api\AlertInterface;
 use Socket\Raw\Socket;
 
 class AntiVirus implements AntiVirusInterface
 {
     const BLOCK_SIZE = 16384;
     const TIMEOUT = 30;
+
+    private $minSize;
 
     /**
      * @var RequestInterface
@@ -39,21 +43,33 @@ class AntiVirus implements AntiVirusInterface
     /**
      * @var Socket
      */
-    protected $av = null;
+    private $clamSocket = null;
 
     /**
      * @var ScopeConfigInterface
      */
     private $scopeConfig;
 
-    protected $minSize;
+    /**
+     * @var File
+     */
+    private $file;
+
+    /**
+     * @var AlertInterface
+     */
+    private $alert;
 
     public function __construct(
         RequestInterface $request,
-        ScopeConfigInterface $scopeConfig
+        ScopeConfigInterface $scopeConfig,
+        AlertInterface $alert,
+        File $file
     ) {
         $this->request = $request;
         $this->scopeConfig = $scopeConfig;
+        $this->file = $file;
+        $this->alert = $alert;
     }
 
     /**
@@ -66,41 +82,43 @@ class AntiVirus implements AntiVirusInterface
     }
 
     /**
-     * Get antivirus instance
+     * Get Anti Virus socket instance
      * @return Socket
      */
-    protected function getAntiVirus()
+    private function getAntiVirus()
     {
-        if (is_null($this->av)) {
+        if ($this->clamSocket === null) {
             try {
                 $unix = $this->scopeConfig->getValue(AntiVirusInterface::XML_PATH_SOCKET);
-                $this->av = (new \Socket\Raw\Factory())->createClient($unix);
+                // @codingStandardsIgnoreStart
+                $this->clamSocket = (new \Socket\Raw\Factory())->createClient($unix);
+                // @codingStandardsIgnoreEnd
                 $this->avCommand('IDSESSION');
             } catch (\Socket\Raw\Exception $e) {
-                $this->av = false;
+                $this->clamSocket = false;
             }
         }
 
-        return $this->av;
+        return $this->clamSocket;
     }
 
     /**
      * Directly send a command to AV engine
-     * @param $command
+     * @param string $command
      */
-    protected function avCommand($command)
+    private function avCommand($command)
     {
         $this->avSend("n$command\n");
     }
 
     /**
      * Directly send a command to AV engine
-     * @param $message
+     * @param string $message
      */
-    protected function avSend($message)
+    private function avSend($message)
     {
-        if ($av = $this->getAntiVirus()) {
-            $av->send($message, MSG_DONTROUTE);
+        if ($clamSocket = $this->getAntiVirus()) {
+            $clamSocket->send($message, MSG_DONTROUTE);
         }
     }
 
@@ -108,9 +126,9 @@ class AntiVirus implements AntiVirusInterface
      * Get minimum string size to activate check
      * @return int
      */
-    protected function getMinSize()
+    private function getMinSize()
     {
-        if (is_null($this->minSize)) {
+        if ($this->minSize === null) {
             $this->minSize = max(1, $this->scopeConfig->getValue(AntiVirusInterface::XML_PATH_MIN_SIZE));
         }
 
@@ -140,29 +158,30 @@ class AntiVirus implements AntiVirusInterface
         }
 
         $this->avSend(pack('N', 0));
-        $response = $this->avRecv();
+        $response = $this->receiveResponse();
 
         return $response;
     }
 
     /**
-     * Read response from AV engine
+     * Read AV response
      * @return null|string
-     * @throws LocalizedException
      */
-    protected function avRecv()
+    private function readResponse()
     {
-        if ($av = $this->getAntiVirus()) {
+        $clamSocket = $this->getAntiVirus();
+        $result = null;
 
-            $result = null;
-
+        if ($clamSocket) {
             while (true) {
-                if ($av->selectRead(static::TIMEOUT)) {
-                    $rt =$av->read(static::BLOCK_SIZE);
-                    if ($rt === "") {
+                if ($clamSocket->selectRead(static::TIMEOUT)) {
+                    $res = $clamSocket->read(static::BLOCK_SIZE);
+
+                    if ($res === "") {
                         break;
                     }
-                    $result .= $rt;
+                    $result .= $res;
+
                     if (strcmp(substr($result, -1), "\n") == 0) {
                         break;
                     }
@@ -170,22 +189,53 @@ class AntiVirus implements AntiVirusInterface
                     break;
                 }
             }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Receive and parse response from AV engine
+     * @return null|string
+     * @throws LocalizedException
+     */
+    private function receiveResponse()
+    {
+        if ($this->getAntiVirus()) {
+            $result = $this->readResponse();
 
             if ($result) {
                 $result = trim($result);
             }
 
-            list($id, $foo, $response) = preg_split('/\s*:\s/', $result, 3);
+            if (preg_match('/^[^:]+:[^:]+:(.+)$/', $result, $matches)) {
+                $response = $matches[1];
+            } else {
+                throw new LocalizedException(__('Invalid ClamAV response'));
+            }
+
+            $response = trim($response);
+
             if ($response == 'OK') {
                 return false;
             }
 
             if (preg_match('/\s+ERROR$/', $response)) {
+                $this->alert->event(
+                    'MSP_AntiVirus',
+                    'Error while trying to scan file: ' . $response,
+                    AlertInterface::LEVEL_ERROR
+                );
                 throw new LocalizedException(__('Error while trying to scan file: ' . $response));
             }
 
             if (!preg_match('/(.+?)\s+FOUND$/', $response, $matches)) {
-                throw new LocalizedException(__('Invalid antivirus engine response'));
+                $this->alert->event(
+                    'MSP_AntiVirus',
+                    'Received invalid ClamAV response: ' . $response,
+                    AlertInterface::LEVEL_ERROR
+                );
+                throw new LocalizedException(__('Invalid ClamAV engine response'));
             }
 
             return $matches[1];
@@ -196,7 +246,7 @@ class AntiVirus implements AntiVirusInterface
 
     /**
      * Scan file and return false if no virus has been detected
-     * @param $file
+     * @param string $file
      * @return array|false
      */
     public function scanFile($file)
@@ -205,9 +255,8 @@ class AntiVirus implements AntiVirusInterface
             return false;
         }
 
-        // Using file_get_contents to avoid permission issues
         try {
-            return $this->scanString(file_get_contents($file));
+            return $this->scanString($this->file->read($file));
         } catch (\Exception $e) {
             return false;
         }
@@ -218,7 +267,7 @@ class AntiVirus implements AntiVirusInterface
      * @param array $files
      * @return array|false
      */
-    protected function recursiveFileRequestScan(array $files)
+    private function recursiveFileRequestScan(array $files)
     {
         if (isset($files['tmp_name']) && !is_array($files['tmp_name'])) {
             return $this->scanFile($files['tmp_name']);
@@ -239,7 +288,7 @@ class AntiVirus implements AntiVirusInterface
      * @param $params
      * @return array|false
      */
-    protected function recursiveParamRequestScan($params)
+    private function recursiveParamRequestScan($params)
     {
         if (!is_array($params)) {
             return $this->scanString($params);
@@ -263,7 +312,8 @@ class AntiVirus implements AntiVirusInterface
     {
         // Scan for files
         $files = $this->request->getFiles();
-        if (count($files)) {
+
+        if (!empty($files)) {
             foreach ($files as $file) {
                 $res = $this->recursiveFileRequestScan($file);
                 if ($res !== false) {
